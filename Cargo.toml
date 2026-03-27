@@ -4,3 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+adw = { version = "0.8.1", package = "libadwaita", features = ["v1_9"] }
+gtk = { version = "0.10.3", package = "gtk4", features = ["gnome_49"] }
+relm4 = { version = "0.10.1", features = ["adw", "gnome_49", "libadwaita"] }
+relm4-components = { version = "0.10.1" }
+gio = { version = "0.21.5" }
