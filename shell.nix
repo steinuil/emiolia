@@ -26,6 +26,11 @@ pkgs.stdenv.mkDerivation {
     # Other compile time dependencies
     openssl
 
+    # libsoup
+    libsoup_3
+    gnutls
+    glib-networking
+
     # Gnome related
     gtk4
     meson
