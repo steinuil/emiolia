@@ -6,9 +6,9 @@ pub struct LoginInfo {
 }
 
 pub struct TransmissionClient {
-    uri: glib::Uri,
-    auth: Option<LoginInfo>,
-    session_id: Option<String>,
+    pub uri: glib::Uri,
+    pub auth: Option<LoginInfo>,
+    pub session_id: Option<String>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -21,6 +21,9 @@ pub enum Error {
 
     #[error("transmission returned a 409 response without a X-Transmission-Session-Id header")]
     NoSessionId,
+
+    #[error("received an invalid response from transmission")]
+    InvalidResponse,
 }
 
 const SESSION_ID_HEADER: &str = "X-Transmission-Session-Id";
@@ -29,11 +32,22 @@ impl TransmissionClient {
     async fn send_request(
         &self,
         session: &soup::Session,
-    ) -> Result<(soup::Message, glib::Bytes), Error> {
+    ) -> Result<(soup::Message, Vec<u8>), Error> {
         let message = soup::Message::from_uri("POST", &self.uri);
         message.set_request_body_from_bytes(
             Some("application/json"),
-            Some(&glib::Bytes::from_owned("")),
+            Some(&glib::Bytes::from_owned(
+                r#"
+                    {
+                        "arguments": {
+                            "fields": [
+                                "version"
+                            ]
+                        },
+                        "method": "session-get"
+                    }
+                "#,
+            )),
         );
         if let Some(session_id) = &self.session_id {
             message
@@ -49,18 +63,19 @@ impl TransmissionClient {
             .await
             .map_err(Error::RequestFailed)?;
 
+        let response = response.to_vec();
+
         Ok((message, response))
     }
 
-    async fn request(&mut self, session: &soup::Session) -> Result<Vec<u8>, Error> {
+    pub async fn request(&mut self, session: &soup::Session) -> Result<serde_json::Value, Error> {
         let (message, response) = self.send_request(session).await?;
 
         let (message, response) = if message.status() == soup::Status::Conflict {
             self.session_id = Some(
                 message
                     .response_headers()
-                    .ok_or(Error::NoSessionId)?
-                    .one(SESSION_ID_HEADER)
+                    .and_then(|h| h.one(SESSION_ID_HEADER))
                     .ok_or(Error::NoSessionId)?
                     .to_string(),
             );
@@ -69,10 +84,13 @@ impl TransmissionClient {
             (message, response)
         };
 
-        let response = response.to_vec();
-
         match message.status() {
-            soup::Status::Ok => Ok(response),
+            soup::Status::Ok => {
+                let response =
+                    serde_json::from_slice(&response).map_err(|_| Error::InvalidResponse)?;
+
+                Ok(response)
+            }
             status => Err(Error::BadStatus(status, response)),
         }
     }

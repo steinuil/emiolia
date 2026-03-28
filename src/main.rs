@@ -69,23 +69,17 @@ impl relm4::component::SimpleAsyncComponent for AppModel {
                 )
                 .unwrap();
 
-                let msg = soup::Message::from_uri("GET", &uri);
+                let mut client = transmission::TransmissionClient {
+                    uri,
+                    auth: None,
+                    session_id: None,
+                };
 
                 let session = soup::Session::new();
 
-                let resp = session
-                    .send_and_read_future(&msg, glib::Priority::DEFAULT_IDLE)
-                    .await
-                    .unwrap();
+                let response = client.request(&session).await;
 
-                let headers = msg.response_headers().unwrap();
-
-                let session_id = headers.one("X-Transmission-Session-Id").unwrap();
-
-                dbg!(session_id);
-
-                let resp_str = str::from_utf8(&resp).unwrap();
-                dbg!(resp_str);
+                dbg!(response);
             }
         }
     }
