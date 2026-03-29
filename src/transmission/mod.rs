@@ -1,3 +1,6 @@
+pub mod rpc;
+
+use base64::Engine as _;
 use soup::prelude::SessionExt as _;
 
 pub struct LoginInfo {
@@ -39,16 +42,22 @@ impl TransmissionClient {
             Some(&glib::Bytes::from_owned(
                 r#"
                     {
-                        "arguments": {
-                            "fields": [
-                                "version"
-                            ]
-                        },
                         "method": "session-get"
                     }
                 "#,
             )),
         );
+
+        if let Some(auth) = &self.auth {
+            let creds = base64::prelude::BASE64_STANDARD
+                .encode(format!("{}:{}", auth.username, auth.password));
+
+            message
+                .request_headers()
+                .expect("request headers")
+                .append("Authorization", &format!("Basic {creds}"))
+        }
+
         if let Some(session_id) = &self.session_id {
             message
                 .request_headers()
@@ -68,7 +77,10 @@ impl TransmissionClient {
         Ok((message, response))
     }
 
-    pub async fn request(&mut self, session: &soup::Session) -> Result<serde_json::Value, Error> {
+    pub async fn request(
+        &mut self,
+        session: &soup::Session,
+    ) -> Result<rpc::Response<rpc::Session>, Error> {
         let (message, response) = self.send_request(session).await?;
 
         let (message, response) = if message.status() == soup::Status::Conflict {
@@ -86,8 +98,10 @@ impl TransmissionClient {
 
         match message.status() {
             soup::Status::Ok => {
-                let response =
-                    serde_json::from_slice(&response).map_err(|_| Error::InvalidResponse)?;
+                let response = serde_json::from_slice(&response).map_err(|e| {
+                    dbg!(e);
+                    Error::InvalidResponse
+                })?;
 
                 Ok(response)
             }
