@@ -3,7 +3,6 @@ mod transmission;
 use gtk::prelude::{
     BoxExt as _, ButtonExt as _, GtkWindowExt as _, OrientableExt as _, WidgetExt as _,
 };
-use soup::prelude::SessionExt;
 
 #[derive(Debug)]
 enum AppMsg {
@@ -51,11 +50,13 @@ impl relm4::component::SimpleAsyncComponent for AppModel {
     async fn init(
         _: Self::Init,
         root: Self::Root,
-        _sender: relm4::AsyncComponentSender<Self>,
+        sender: relm4::AsyncComponentSender<Self>,
     ) -> relm4::component::AsyncComponentParts<Self> {
         let model = AppModel {};
 
         let widgets = view_output!();
+
+        sender.input(AppMsg::FetchVersion);
 
         relm4::component::AsyncComponentParts { model, widgets }
     }
