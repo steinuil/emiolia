@@ -1,4 +1,5 @@
-mod transmission;
+mod app;
+mod library;
 mod ui;
 
 use gio::prelude::ApplicationExt;
@@ -8,19 +9,20 @@ use gtk::prelude::{
 };
 use relm4::{
     Component as _, ComponentController as _, Controller,
-    actions::{RelmAction, RelmActionGroup},
     prelude::{AsyncComponent as _, AsyncComponentController as _, AsyncController},
 };
 
 #[derive(Debug)]
 enum AppMsg {
-    FetchVersion,
+    OpenFileDialog,
     OpenPreferences,
     OpenAbout,
     OpenShortcuts,
+    Quit,
 }
 
 struct AppModel {
+    root: adw::ApplicationWindow,
     preferences: AsyncController<ui::preferences::Preferences>,
     about: Controller<ui::about::About>,
     shortcuts: Controller<ui::shortcuts::Shortcuts>,
@@ -30,6 +32,7 @@ relm4::new_action_group!(pub WindowActionGroup, "win");
 relm4::new_stateless_action!(PreferencesAction, WindowActionGroup, "preferences");
 relm4::new_stateless_action!(AboutAction, WindowActionGroup, "about");
 relm4::new_stateless_action!(ShortcutsAction, WindowActionGroup, "shortcuts");
+relm4::new_stateless_action!(QuitAction, WindowActionGroup, "quit");
 
 #[relm4::component(async)]
 impl relm4::component::SimpleAsyncComponent for AppModel {
@@ -41,19 +44,23 @@ impl relm4::component::SimpleAsyncComponent for AppModel {
         primary_menu: {
             section! {
                 "Preferences" => PreferencesAction,
-                "About" => AboutAction,
-                "Shortcuts" => ShortcutsAction,
+                "Keyboard Shortcuts" => ShortcutsAction,
+                "About Emiolia " => AboutAction,
             }
         }
     }
 
     view! {
         adw::ApplicationWindow {
-            set_title: Some("Gush"),
+            set_title: Some(app::NAME),
             set_default_width: 300,
             set_default_height: 100,
+            // add_css_class: "devel",
 
-            // connect_close_request => move |_| { glib::Propagation::Stop },
+            connect_close_request[sender] => move |_| {
+                sender.input(AppMsg::Quit);
+                glib::Propagation::Stop
+            },
 
             adw::ToolbarView {
                 add_top_bar = &adw::HeaderBar {
@@ -66,28 +73,20 @@ impl relm4::component::SimpleAsyncComponent for AppModel {
                 },
 
                 adw::StatusPage {
-                    set_icon_name: Some("network-transmit"),
-                    set_title: "Gush",
-                    set_description: Some("Configure a thing"),
+                    set_icon_name: Some("x-office-document-symbolic"),
+                    set_title: app::NAME,
+                    set_description: Some("No libraries found"),
 
                     gtk::Box {
                         set_orientation: gtk::Orientation::Vertical,
                         set_spacing: 18,
                         set_halign: gtk::Align::Center,
 
-                        gtk::Button::with_label("Configure") {
+                        gtk::Button::with_label("Create a library") {
                             add_css_class: "pill",
-                            connect_clicked => AppMsg::FetchVersion,
-                        },
-
-                        gtk::Button::with_label("Settings") {
-                            add_css_class: "pill",
-                            connect_clicked => AppMsg::OpenPreferences,
-                        },
-
-                        gtk::Button::with_label("About") {
-                            add_css_class: "pill",
-                            connect_clicked => AppMsg::OpenAbout,
+                            add_css_class: "suggested-action",
+                            set_icon_name: "list-add-symbolic",
+                            connect_clicked => AppMsg::OpenFileDialog,
                         },
                     },
                 },
@@ -104,87 +103,87 @@ impl relm4::component::SimpleAsyncComponent for AppModel {
             .launch(root.clone())
             .detach();
         let about = ui::about::About::builder().launch(root.clone()).detach();
+
+        let widgets = view_output!();
+
+        let app = relm4::main_adw_application();
+        app.set_menubar(Some(&primary_menu));
+
+        let accels = ui::macros::actions!(app, &root, sender, WindowActionGroup, {
+            PreferencesAction["Preferences", "<Primary>comma"] => AppMsg::OpenPreferences,
+            AboutAction => AppMsg::OpenAbout,
+            ShortcutsAction["Show Shortcuts", "<Primary>question"] => AppMsg::OpenShortcuts,
+            QuitAction["Quit", "<Primary>q"] => AppMsg::Quit,
+        });
+
         let shortcuts = ui::shortcuts::Shortcuts::builder()
-            .launch(root.clone())
+            .launch(ui::shortcuts::Init {
+                parent: root.clone(),
+                items: vec![("Basic".to_string(), accels)],
+            })
             .detach();
 
         let model = AppModel {
+            root,
             preferences,
             about,
             shortcuts,
         };
-
-        let widgets = view_output!();
-
-        let mut actions = RelmActionGroup::<WindowActionGroup>::new();
-        actions.add_action(RelmAction::<PreferencesAction>::new_stateless({
-            let sender = model.preferences.sender().clone();
-            move |_| {
-                sender.send(ui::preferences::Input::Present).unwrap();
-            }
-        }));
-        actions.add_action(RelmAction::<AboutAction>::new_stateless({
-            let sender = model.about.sender().clone();
-            move |_| {
-                sender.send(ui::about::Input::Present).unwrap();
-            }
-        }));
-        actions.add_action(RelmAction::<ShortcutsAction>::new_stateless({
-            let sender = model.shortcuts.sender().clone();
-            move |_| {
-                sender.send(ui::shortcuts::Input::Present).unwrap();
-            }
-        }));
-
-        actions.register_for_widget(&root);
-
-        let app = relm4::main_adw_application();
-        app.set_menubar(Some(&primary_menu));
-        app.set_accels_for_action("win.preferences", &["<Primary>comma"]);
-        app.set_accels_for_action("win.about", &["F1"]);
-        app.set_accels_for_action("win.shortcuts", &["<Primary>question"]);
-
-        sender.input(AppMsg::FetchVersion);
 
         relm4::component::AsyncComponentParts { model, widgets }
     }
 
     async fn update(&mut self, msg: Self::Input, _sender: relm4::AsyncComponentSender<Self>) {
         match msg {
-            AppMsg::FetchVersion => {
-                let uri = glib::Uri::parse(
-                    "http://192.168.1.25:9091/transmission/rpc",
-                    glib::UriFlags::empty(),
-                )
-                .unwrap();
-
-                let mut client = transmission::TransmissionClient {
-                    uri,
-                    auth: None,
-                    session_id: None,
+            AppMsg::OpenFileDialog => {
+                let filter = {
+                    let filter = gtk::FileFilter::new();
+                    filter.add_suffix("pdf");
+                    filter
+                };
+                let selected_file = gtk::FileDialog::builder()
+                    .modal(true)
+                    .default_filter(&filter)
+                    .build()
+                    .open_future(Some(&self.root))
+                    .await;
+                let selected_file = match selected_file {
+                    Ok(file) => file,
+                    Err(_) => return,
                 };
 
-                let session = soup::Session::new();
+                let document =
+                    poppler::Document::from_gfile(&selected_file, None, None::<&gio::Cancellable>);
+                let document = match document {
+                    Ok(document) => document,
+                    Err(_) => return,
+                };
 
-                let response = client.request(&session).await;
-
-                let _ = dbg!(response);
+                dbg!(
+                    document.author(),
+                    document.title(),
+                    document.subject(),
+                    document.keywords(),
+                    document.producer(),
+                    document.creator(),
+                    document.creation_date_time().map(|dt| dt.format_iso8601()),
+                    document.metadata(),
+                    document
+                        .modification_date_time()
+                        .map(|dt| dt.format_iso8601()),
+                );
             }
-
-            AppMsg::OpenPreferences => {
-                self.preferences.emit(ui::preferences::Input::Present);
-            }
-
+            AppMsg::OpenPreferences => self.preferences.emit(ui::preferences::Input::Present),
             AppMsg::OpenAbout => self.about.emit(ui::about::Input::Present),
-
             AppMsg::OpenShortcuts => self.shortcuts.emit(ui::shortcuts::Input::Present),
+            AppMsg::Quit => relm4::main_adw_application().quit(),
         }
     }
 }
 
 fn main() {
     let app = relm4::main_adw_application();
-    app.set_application_id(Some("work.neets.Gush"));
+    app.set_application_id(Some(app::ID));
 
     let app = relm4::RelmApp::from_app(app);
     app.run_async::<AppModel>(());

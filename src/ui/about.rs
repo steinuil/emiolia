@@ -1,3 +1,4 @@
+use crate::app;
 use adw::prelude::AdwDialogExt as _;
 use relm4::{ComponentParts, ComponentSender, SimpleComponent};
 
@@ -25,7 +26,7 @@ impl SimpleComponent for About {
             .license_type(gtk::License::Gpl30)
             .website("https://github.com/steinuil/gush")
             .issue_url("https://github.com/steinuil/gush/issues")
-            .application_name("Gush")
+            .application_name(app::NAME)
             .version("0.1.0")
             .copyright("Copyright © 2026 steen")
             .can_close(true)

@@ -1,11 +1,9 @@
 { pkgs, ... }:
 let
-  # Manifest via Cargo.toml
-  # manifest = (pkgs.lib.importTOML ./Cargo.toml).package;
+  manifest = (pkgs.lib.importTOML ./Cargo.toml).package;
 in
 pkgs.stdenv.mkDerivation {
-  # name = "${manifest.name}-dev";
-  name = "gush-dev";
+  name = "${manifest.name}-dev";
 
   # Compile time dependencies
   nativeBuildInputs = with pkgs; [
@@ -30,6 +28,10 @@ pkgs.stdenv.mkDerivation {
     libsoup_3
     gnutls
     glib-networking
+
+    # PDF
+    gtk4-layer-shell
+    poppler
 
     # Gnome related
     gtk4

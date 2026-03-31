@@ -1,11 +1,11 @@
 [package]
-name = "gush"
+name = "emiolia"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-gio = { version = "0.21.5" }
 glib = { version = "0.21.5" }
+gio = { version = "0.21.5" }
 soup3 = "0.8.0"
 gtk = { version = "0.10.3", package = "gtk4", features = ["gnome_49"] }
 adw = { version = "0.8.1", package = "libadwaita", features = ["v1_9"] }
@@ -16,3 +16,4 @@ serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 base64 = "0.22.1"
 url = "2.5.8"
+poppler-rs = { version = "0.25.0", features = ["v25_2"] }

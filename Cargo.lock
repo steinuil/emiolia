@@ -77,6 +77,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "emiolia"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "gio",
+ "glib",
+ "gtk4",
+ "libadwaita",
+ "poppler-rs",
+ "relm4",
+ "relm4-components",
+ "serde",
+ "serde_json",
+ "soup3",
+ "thiserror",
+ "url",
+]
+
+[[package]]
 name = "equivalent"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -478,24 +497,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gush"
-version = "0.1.0"
-dependencies = [
- "base64",
- "gio",
- "glib",
- "gtk4",
- "libadwaita",
- "relm4",
- "relm4-components",
- "serde",
- "serde_json",
- "soup3",
- "thiserror",
- "url",
-]
-
-[[package]]
 name = "hashbrown"
 version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -749,6 +750,33 @@ name = "pkg-config"
 version = "0.3.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7edddbd0b52d732b21ad9a5fab5c704c14cd949e5e9a1ec5929a24fded1b904c"
+
+[[package]]
+name = "poppler-rs"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f654ec8b83bca9adb0ea7e62194a1e5767a094d282d77630ff0ddb2edbc30139"
+dependencies = [
+ "cairo-rs",
+ "gio",
+ "glib",
+ "libc",
+ "poppler-sys-rs",
+]
+
+[[package]]
+name = "poppler-sys-rs"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f59d8616943cf71be2a33d866dee973eaaa3e507eb21eb102c6424f773ea6ad"
+dependencies = [
+ "cairo-sys-rs",
+ "gio-sys",
+ "glib-sys",
+ "gobject-sys",
+ "libc",
+ "system-deps",
+]
 
 [[package]]
 name = "potential_utf"
