@@ -2,10 +2,11 @@ mod app;
 mod library;
 mod ui;
 
+use adw::prelude::{ActionRowExt, PreferencesGroupExt as _, PreferencesRowExt as _};
 use gio::prelude::ApplicationExt;
 use gtk::prelude::{
-    BoxExt as _, ButtonExt as _, GtkApplicationExt, GtkWindowExt as _, OrientableExt as _,
-    WidgetExt as _,
+    BoxExt as _, ButtonExt as _, GtkApplicationExt, GtkWindowExt as _, ListBoxRowExt as _,
+    OrientableExt as _, WidgetExt as _,
 };
 use relm4::{
     Component as _, ComponentController as _, Controller,
@@ -26,6 +27,7 @@ struct AppModel {
     preferences: AsyncController<ui::preferences::Preferences>,
     about: Controller<ui::about::About>,
     shortcuts: Controller<ui::shortcuts::Shortcuts>,
+    setup: AsyncController<ui::setup::Setup>,
 }
 
 relm4::new_action_group!(pub WindowActionGroup, "win");
@@ -62,6 +64,7 @@ impl relm4::component::SimpleAsyncComponent for AppModel {
                 glib::Propagation::Stop
             },
 
+            #[name = "main"]
             adw::ToolbarView {
                 add_top_bar = &adw::HeaderBar {
                     pack_end = &gtk::MenuButton {
@@ -69,25 +72,6 @@ impl relm4::component::SimpleAsyncComponent for AppModel {
                         set_icon_name: "open-menu-symbolic",
                         set_primary: true,
                         set_menu_model: Some(&primary_menu),
-                    },
-                },
-
-                adw::StatusPage {
-                    set_icon_name: Some("x-office-document-symbolic"),
-                    set_title: app::NAME,
-                    set_description: Some("No libraries found"),
-
-                    gtk::Box {
-                        set_orientation: gtk::Orientation::Vertical,
-                        set_spacing: 18,
-                        set_halign: gtk::Align::Center,
-
-                        gtk::Button::with_label("Create a library") {
-                            add_css_class: "pill",
-                            add_css_class: "suggested-action",
-                            set_icon_name: "list-add-symbolic",
-                            connect_clicked => AppMsg::OpenFileDialog,
-                        },
                     },
                 },
             }
@@ -123,11 +107,23 @@ impl relm4::component::SimpleAsyncComponent for AppModel {
             })
             .detach();
 
+        let setup = ui::setup::Setup::builder()
+            .launch(ui::setup::Init {
+                parent: Some(root.clone()),
+                default_library_directory: glib::GString::from_string_unchecked(
+                    "file:///home/steenuil/Documents/Music sheets".to_string(),
+                ),
+            })
+            .detach();
+
+        widgets.main.set_content(Some(setup.widget()));
+
         let model = AppModel {
             root,
             preferences,
             about,
             shortcuts,
+            setup,
         };
 
         relm4::component::AsyncComponentParts { model, widgets }

@@ -31,3 +31,14 @@ macro_rules! actions {
 }
 
 pub(crate) use actions;
+
+macro_rules! unwrap_or_return {
+    ($result:expr) => {
+        match $result {
+            Ok(value) => value,
+            Err(_) => return,
+        }
+    };
+}
+
+pub(crate) use unwrap_or_return;
