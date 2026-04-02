@@ -1,3 +1,5 @@
+use std::path::{Path, PathBuf};
+
 use super::macros::unwrap_or_return;
 use crate::app;
 use adw::prelude::{ActionRowExt as _, PreferencesRowExt as _};
@@ -10,8 +12,8 @@ use relm4::{
 
 #[derive(Debug)]
 pub struct Setup {
-    parent: Option<adw::ApplicationWindow>,
-    library_directory: glib::GString,
+    parent: adw::ApplicationWindow,
+    library_directory: Option<PathBuf>,
 }
 
 #[derive(Debug)]
@@ -22,18 +24,26 @@ pub enum Input {
 
 #[derive(Debug)]
 pub enum Output {
-    CreateLibrary(glib::GString),
+    CreateLibrary(PathBuf),
 }
 
-#[derive(Debug)]
-pub struct Init {
-    pub parent: Option<adw::ApplicationWindow>,
-    pub default_library_directory: glib::GString,
+fn initial_folder() -> PathBuf {
+    glib::user_special_dir(glib::UserDirectory::Documents).unwrap_or_else(|| glib::home_dir())
+}
+
+fn default_library_dir() -> Option<PathBuf> {
+    let mut path = glib::user_special_dir(glib::UserDirectory::Documents)?;
+    path.push("Sheet music");
+    Some(path)
+}
+
+fn get_dir_name(dir: &Path) -> Option<String> {
+    Some(dir.file_name()?.to_string_lossy().to_string())
 }
 
 #[relm4::component(pub async)]
 impl SimpleAsyncComponent for Setup {
-    type Init = Init;
+    type Init = adw::ApplicationWindow;
     type Input = Input;
     type Output = Output;
 
@@ -60,7 +70,8 @@ impl SimpleAsyncComponent for Setup {
                             adw::ButtonContent {
                                 set_can_shrink: true,
                                 set_icon_name: "folder-symbolic",
-                                set_label: "Sheet music",
+                                #[watch]
+                                set_label: &model.library_directory.as_ref().and_then(|p| get_dir_name(p)).unwrap_or_else(|| "No directory selected".to_string()),
                             },
                         },
                     },
@@ -70,6 +81,8 @@ impl SimpleAsyncComponent for Setup {
                         add_css_class: "suggested-action",
                         set_end_icon_name: Some("go-next-symbolic"),
                         set_hexpand: false,
+                        #[watch]
+                        set_sensitive: model.library_directory.is_some(),
                         connect_activated => Input::CreateLibrary,
                     },
                 },
@@ -78,13 +91,13 @@ impl SimpleAsyncComponent for Setup {
     }
 
     async fn init(
-        init: Self::Init,
+        parent: Self::Init,
         root: Self::Root,
         _sender: AsyncComponentSender<Self>,
     ) -> AsyncComponentParts<Self> {
         let model = Setup {
-            library_directory: init.default_library_directory,
-            parent: init.parent,
+            library_directory: default_library_dir(),
+            parent,
         };
 
         let widgets = view_output!();
@@ -95,25 +108,28 @@ impl SimpleAsyncComponent for Setup {
     async fn update(&mut self, msg: Self::Input, sender: AsyncComponentSender<Self>) {
         match msg {
             Input::SelectLibraryDirectory => {
-                let documents_directory = glib::user_special_dir(glib::UserDirectory::Documents)
-                    .unwrap_or_else(|| glib::home_dir());
-
-                let documents_directory = gio::File::for_path(&documents_directory);
+                let documents_directory = gio::File::for_path(initial_folder());
 
                 let selected_dir = unwrap_or_return!(
                     gtk::FileDialog::builder()
                         .modal(true)
                         .initial_folder(&documents_directory)
                         .build()
-                        .select_folder_future(self.parent.as_ref())
+                        .select_folder_future(Some(&self.parent))
                         .await
                 );
+                let selected_dir = match selected_dir.path() {
+                    Some(path) => path,
+                    None => return,
+                };
 
-                self.library_directory = selected_dir.uri();
+                self.library_directory = Some(selected_dir);
             }
 
             Input::CreateLibrary => {
-                let _ = sender.output(Output::CreateLibrary(self.library_directory.clone()));
+                if let Some(directory) = &self.library_directory {
+                    let _ = sender.output(Output::CreateLibrary(directory.clone()));
+                }
             }
         }
     }

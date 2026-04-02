@@ -107,14 +107,7 @@ impl relm4::component::SimpleAsyncComponent for AppModel {
             })
             .detach();
 
-        let setup = ui::setup::Setup::builder()
-            .launch(ui::setup::Init {
-                parent: Some(root.clone()),
-                default_library_directory: glib::GString::from_string_unchecked(
-                    "file:///home/steenuil/Documents/Music sheets".to_string(),
-                ),
-            })
-            .detach();
+        let setup = ui::setup::Setup::builder().launch(root.clone()).detach();
 
         widgets.main.set_content(Some(setup.widget()));
 
