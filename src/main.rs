@@ -2,12 +2,8 @@ mod app;
 mod library;
 mod ui;
 
-use adw::prelude::{ActionRowExt, PreferencesGroupExt as _, PreferencesRowExt as _};
-use gio::prelude::ApplicationExt;
-use gtk::prelude::{
-    BoxExt as _, ButtonExt as _, GtkApplicationExt, GtkWindowExt as _, ListBoxRowExt as _,
-    OrientableExt as _, WidgetExt as _,
-};
+use gio::prelude::ApplicationExt as _;
+use gtk::prelude::{GtkApplicationExt, GtkWindowExt as _, WidgetExt as _};
 use relm4::{
     Component as _, ComponentController as _, Controller,
     prelude::{AsyncComponent as _, AsyncComponentController as _, AsyncController},
@@ -15,13 +11,14 @@ use relm4::{
 
 #[derive(Debug)]
 enum AppMsg {
-    OpenFileDialog,
+    CreateLibrary(std::path::PathBuf),
     OpenPreferences,
     OpenAbout,
     OpenShortcuts,
     Quit,
 }
 
+#[derive(Debug)]
 struct AppModel {
     root: adw::ApplicationWindow,
     preferences: AsyncController<ui::preferences::Preferences>,
@@ -107,7 +104,12 @@ impl relm4::component::SimpleAsyncComponent for AppModel {
             })
             .detach();
 
-        let setup = ui::setup::Setup::builder().launch(root.clone()).detach();
+        let setup = ui::setup::Setup::builder().launch(root.clone()).forward(
+            sender.input_sender(),
+            |msg| match msg {
+                ui::setup::Output::CreateLibrary(path) => AppMsg::CreateLibrary(path),
+            },
+        );
 
         widgets.main.set_content(Some(setup.widget()));
 
@@ -124,43 +126,8 @@ impl relm4::component::SimpleAsyncComponent for AppModel {
 
     async fn update(&mut self, msg: Self::Input, _sender: relm4::AsyncComponentSender<Self>) {
         match msg {
-            AppMsg::OpenFileDialog => {
-                let filter = {
-                    let filter = gtk::FileFilter::new();
-                    filter.add_suffix("pdf");
-                    filter
-                };
-                let selected_file = gtk::FileDialog::builder()
-                    .modal(true)
-                    .default_filter(&filter)
-                    .build()
-                    .open_future(Some(&self.root))
-                    .await;
-                let selected_file = match selected_file {
-                    Ok(file) => file,
-                    Err(_) => return,
-                };
-
-                let document =
-                    poppler::Document::from_gfile(&selected_file, None, None::<&gio::Cancellable>);
-                let document = match document {
-                    Ok(document) => document,
-                    Err(_) => return,
-                };
-
-                dbg!(
-                    document.author(),
-                    document.title(),
-                    document.subject(),
-                    document.keywords(),
-                    document.producer(),
-                    document.creator(),
-                    document.creation_date_time().map(|dt| dt.format_iso8601()),
-                    document.metadata(),
-                    document
-                        .modification_date_time()
-                        .map(|dt| dt.format_iso8601()),
-                );
+            AppMsg::CreateLibrary(path) => {
+                dbg!(path);
             }
             AppMsg::OpenPreferences => self.preferences.emit(ui::preferences::Input::Present),
             AppMsg::OpenAbout => self.about.emit(ui::about::Input::Present),
