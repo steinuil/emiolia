@@ -33,6 +33,9 @@ pkgs.stdenv.mkDerivation {
     gtk4-layer-shell
     poppler
 
+    # SQLite
+    sqlite
+
     # Gnome related
     gtk4
     meson
