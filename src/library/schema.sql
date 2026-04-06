@@ -25,6 +25,8 @@ CREATE TABLE IF NOT EXISTS score (
 CREATE TABLE IF NOT EXISTS page (
     id               INTEGER PRIMARY KEY NOT NULL,
     score_id         INTEGER             NOT NULL REFERENCES score(id),
+    width            INTEGER             NOT NULL,
+    height           INTEGER             NOT NULL,
     order_index      INTEGER             NOT NULL
 ) STRICT;
 
