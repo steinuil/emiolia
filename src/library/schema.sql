@@ -3,7 +3,7 @@ PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS document (
     id               INTEGER PRIMARY KEY NOT NULL,
     sha256           BLOB                NOT NULL,
-    extension        TEXT                NOT NULL,
+    file_type        INTEGER             NOT NULL,
     page_count       INTEGER             NOT NULL,
     import_filename  TEXT                    NULL,
     imported_at      INTEGER             NOT NULL
